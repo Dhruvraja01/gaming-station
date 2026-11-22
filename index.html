@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>Dhruv Gaming Station</title>
+<style>
+*{box-sizing:border-box}
+body{margin:0;background:#080d1c;color:#fff;font-family:Arial,sans-serif}
+header{padding:20px 12px;text-align:center;background:#101b35;border-bottom:2px solid #00d9ff}
+header h1{margin:0;color:#00eaff;font-size:25px}
+nav{padding:12px;text-align:center;background:#14213b;position:sticky;top:0;z-index:5}
+nav a{color:#fff;text-decoration:none;margin:0 12px}
+.hero{text-align:center;padding:32px 12px;background:linear-gradient(135deg,#10204a,#35165d)}
+.hero h2{color:#00eaff}
+button{border:0;border-radius:10px;padding:12px 16px;margin:5px;background:#087cff;color:white;font-weight:bold;font-size:15px;cursor:pointer;touch-action: manipulation}
+button:active{transform:scale(.96)}
+#games{padding:22px 12px;text-align:center}
+.grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;max-width:700px;margin:20px auto}
+.game-card{background:#14213b;border:1px solid #00d9ff;border-radius:14px;padding:15px 8px}
+.game-card h2{font-size:30px;margin:5px}
+#screen{margin:15px auto;padding:12px;max-width:760px;min-height:300px;text-align:center;background:#101b30;border:1px solid #00d9ff;border-radius:15px}
+#screen h2{color:#00eaff}
+#raceCanvas{display:block;width:100%;max-width:640px;height:auto;margin:10px auto;background:#18243a;border-radius:10px;touch-action:none}
+.race-hud{display:flex;justify-content:space-around;flex-wrap:wrap;gap:8px;font-weight:bold}
+.controls{display:flex;justify-content:center;align-items:center;gap:10px;flex-wrap:wrap;margin:10px auto}
+.control-btn{min-width:70px;min-height:58px;font-size:23px;background:#154d91}
+.pedal{min-width:105px;min-height:58px;background:#13834a}
+#screen .small{font-size:13px;color:#c5d5ee}
+#board{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;max-width:400px;margin:15px auto}
+footer{text-align:center;padding:22px;background:#101b35;color:#cbd5e1}
+@media(min-width:600px){.grid{grid-template-columns:repeat(3,1fr)}}
+</style>
+</head>
+<body>
+<header><h1>🎮 DHRUV GAMING STATION</h1><p>Play • Beat Records • Have Fun</p></header>
+<nav><a href="#home">Home</a><a href="#games">Games</a></nav>
+<div class="hero" id="home"><h2>WELCOME GAMER!</h2><p>Your gaming world starts here.</p><button onclick="document.getElementById('games').scrollIntoView({behavior:'smooth'})">START PLAYING</button></div>
+
+<section id="games">
+<h2>🔥 SELECT YOUR GAME</h2>
+<div class="grid">
+<div class="game-card"><h2>🏎️</h2><h3>3D Car Racing</h3><button onclick="carGame()">PLAY</button></div>
+<div class="game-card"><h2>🏏</h2><h3>Cricket</h3><button onclick="cricketGame()">PLAY</button></div>
+<div class="game-card"><h2>🧩</h2><h3>Memory Match</h3><button onclick="memoryGame()">PLAY</button></div>
+<div class="game-card"><h2>✊</h2><h3>Rock Paper Scissors</h3><button onclick="rpsGame()">PLAY</button></div>
+<div class="game-card"><h2>🎯</h2><h3>Tap Challenge</h3><button onclick="tapGame()">PLAY</button></div>
+</div>
+</section>
+<div id="screen"><h2>🎮 GAME SCREEN</h2><p>Select a game above to start.</p></div>
+<footer>© 2026 Dhruv Gaming Station</footer>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+const screen=document.getElementById('screen');
+let raf=null, timers=[], cleanup=null;
+function stopGame(){
+ if(raf!==null){cancelAnimationFrame(raf);raf=null}
+ timers.forEach(t=>{clearInterval(t);clearTimeout(t)});timers=[];
+ if(cleanup){cleanup();cleanup=null}
+}
+function menu(){stopGame();screen.innerHTML='<h2>🎮 GAME SCREEN</h2><p>Select a game above.</p>'}
+
+function carGame(){
+ stopGame();
+ if(!window.THREE){
+  screen.innerHTML='<h2>3D library did not load</h2><p>Please turn on internet and refresh the page.</p><button onclick="carGame()">TRY AGAIN</button><button onclick="menu()">MENU</button>';return;
+ }
+ screen.innerHTML=`
+ <h2>🏎️ 3D CAR RACING</h2>
+ <div class="race-hud"><span id="raceScore">Distance: 0</span><span id="raceSpeed">Speed: 0</span><span id="raceBest">Best: ${localStorage.getItem('dhruvRaceBest')||0}</span></div>
+ <div id="raceHost"></div>
+ <div class="controls">
+ <button class="control-btn" id="steerLeft">⬅️</button>
+ <button class="control-btn" id="steerRight">➡️</button>
+ <button class="pedal" id="brake">BRAKE</button>
+ <button class="pedal" id="accelerate">ACCELERATE</button>
+ </div>
+ <p class="small">Hold left/right to steer. Hold accelerator to speed up; brake to slow down. Avoid traffic.</p>
+ <button onclick="carGame()">RESTART</button><button onclick="menu()">GAME MENU</button>
+ <button id="fullScreenBtn">FULL SCREEN</button>`;
+ const host=document.getElementById('raceHost');
+ const scene=new THREE.Scene();scene.background=new THREE.Color(0x8bc8ef);scene.fog=new THREE.Fog(0x8bc8ef,35,115);
+ const camera=new THREE.PerspectiveCamera(62,1,0.1,180);camera.position.set(0,6.8,12);camera.lookAt(0,0,-8);
+ const renderer=new THREE.WebGLRenderer({antialias:true});
+ renderer.setPixelRatio(Math.min(devicePixelRatio,1.5));renderer.setSize(Math.min(host.clientWidth||600,640),360);renderer.shadowMap.enabled=true;host.appendChild(renderer.domElement);renderer.domElement.id='raceCanvas';
+ scene.add(new THREE.HemisphereLight(0xffffff,0x405060,1.5));
+ const sun=new THREE.DirectionalLight(0xffffff,1.1);sun.position.set(-5,12,8);scene.add(sun);
+ const road=new THREE.Mesh(new THREE.PlaneGeometry(12,130),new THREE.MeshStandardMaterial({color:0x303640,roughness:1}));road.rotation.x=-Math.PI/2;road.position.z=-48;scene.add(road);
+ const grassMat=new THREE.MeshStandardMaterial({color:0x287a3c});
+ for(let side of [-1,1]){let g=new THREE.Mesh(new THREE.PlaneGeometry(45,130),grassMat);g.rotation.x=-Math.PI/2;g.position.set(side*28,-.03,-48);scene.add(g)}
+ const dashMat=new THREE.MeshStandardMaterial({color:0xffffff});
+ let dashes=[];
+ for(let z=-115;z<10;z+=9){for(let x of [-2,2]){let m=new THREE.Mesh(new THREE.BoxGeometry(.13,.025,4),dashMat);m.position.set(x,.025,z);scene.add(m);dashes.push(m)}}
+ function makeCar(color){
+  const group=new THREE.Group();
+  const body=new THREE.Mesh(new THREE.BoxGeometry(1.45,.55,2.55),new THREE.MeshStandardMaterial({color,metalness:.25,roughness:.45}));body.position.y=.62;group.add(body);
+  const cabin=new THREE.Mesh(new THREE.BoxGeometry(1.05,.55,1.15),new THREE.MeshStandardMaterial({color:0x9ddcf5,metalness:.2,roughness:.25}));cabin.position.set(0,1.12,-.15);group.add(cabin);
+  const black=new THREE.MeshStandardMaterial({color:0x111111});
+  for(let x of [-.78,.78])for(let z of [-.78,.78]){let w=new THREE.Mesh(new THREE.BoxGeometry(.22,.42,.48),black);w.position.set(x,.38,z);group.add(w)}
+  return group;
+ }
+ const player=makeCar(0x00c8ff);player.position.set(0,0,4);scene.add(player);
+ let traffic=[];
+ function spawnTraffic(){let e=makeCar([0xff3b55,0xffc400,0xb36bff,0xffffff][Math.floor(Math.random()*4)]);e.scale.setScalar(.92);e.position.set([-3.8,0,3.8][Math.floor(Math.random()*3)],0,-90);scene.add(e);traffic.push(e)}
+ let laneX=0,steer=0,speed=0.42,distance=0,alive=true,frame=0,score=0;
+ let best=Number(localStorage.getItem('dhruvRaceBest')||0);
+ const keys={left:false,right:false,gas:false,brake:false};
+ function bind(id,key){let el=document.getElementById(id);const on=()=>keys[key]=true,off=()=>keys[key]=false;el.addEventListener('pointerdown',e=>{e.preventDefault();on()});['pointerup','pointerleave','pointercancel'].forEach(ev=>el.addEventListener(ev,off));}
+ bind('steerLeft','left');bind('steerRight','right');bind('accelerate','gas');bind('brake','brake');
+ const keydown=e=>{if(e.key==='ArrowLeft')keys.left=true;if(e.key==='ArrowRight')keys.right=true;if(e.key==='ArrowUp')keys.gas=true;if(e.key==='ArrowDown')keys.brake=true};
+ const keyup=e=>{if(e.key==='ArrowLeft')keys.left=false;if(e.key==='ArrowRight')keys.right=false;if(e.key==='ArrowUp')keys.gas=false;if(e.key==='ArrowDown')keys.brake=false};
+ window.addEventListener('keydown',keydown);window.addEventListener('keyup',keyup);
+ document.getElementById('fullScreenBtn').onclick=()=>{if(host.requestFullscreen)host.requestFullscreen()};
+ const resize=()=>{let w=Math.min(host.clientWidth||600,640);camera.aspect=w/360;camera.updateProjectionMatrix();renderer.setSize(w,360)};
+ window.addEventListener('resize',resize);
+ cleanup=()=>{alive=false;window.removeEventListener('keydown',keydown);window.removeEventListener('keyup',keyup);window.removeEventListener('resize',resize);renderer.dispose();scene.traverse(o=>{if(o.geometry)o.geometry.dispose();if(o.material){if(Array.isArray(o.material))o.material.forEach(m=>m.dispose());else o.material.dispose()}})};
+ function endRace(){
+  alive=false;let final=Math.floor(distance);if(final>best){best=final;localStorage.setItem('dhruvRaceBest',best)}
+  document.getElementById('raceBest').textContent='Best: '+best;
+  const msg=document.createElement('h3');msg.style.color='#ff6677';msg.textContent='GAME OVER — Distance: '+final;host.after(msg);
+ }
+ function loop(){
+  if(!alive)return;
+  frame++;
+  if(keys.gas)speed=Math.min(1.05,speed+.012);else speed=Math.max(.38,speed-.002);
+  if(keys.brake)speed=Math.max(.2,speed-.025);
+  if(keys.left)steer=Math.max(-1,steer-.07);else if(keys.right)steer=Math.min(1,steer+.07);else steer*=.86;
+  laneX+=steer*.12;laneX=Math.max(-4.5,Math.min(4.5,laneX));player.position.x=laneX;
+  distance+=speed;score=Math.floor(distance/3);
+  document.getElementById('raceScore').textContent='Distance: '+score;
+  document.getElementById('raceSpeed').textContent='Speed: '+Math.round(speed*100)+' km/h';
+  dashes.forEach(m=>{m.position.z+=speed*1.8;if(m.position.z>12)m.position.z=-115});
+  if(frame%85===0)spawnTraffic();
+  for(let i=traffic.length-1;i>=0;i--){let e=traffic[i];e.position.z+=speed*1.7;
+   if(Math.abs(e.position.x-player.position.x)<1.35&&Math.abs(e.position.z-player.position.z)<2.0){endRace();break}
+   if(e.position.z>13){scene.remove(e);traffic.splice(i,1)}
+  }
+  camera.position.x+=(laneX*.25-camera.position.x)*.04;camera.lookAt(laneX*.18,0,-8);
+  renderer.render(scene,camera);raf=requestAnimationFrame(loop);
+ }
+ loop();
+}
+
+function cricketGame(){stopGame();let runs=0,balls=0;screen.innerHTML=`<h2>🏏 CRICKET</h2><h3 id="cr">Runs: 0</h3><p id="cb">Balls: 0/12</p><div style="font-size:65px">🏏</div><button id="hit">HIT THE BALL</button><h3 id="crend"></h3><button onclick="cricketGame()">RESTART</button><button onclick="menu()">MENU</button>`;document.getElementById('hit').onclick=()=>{if(balls>=12)return;let n=[0,1,2,3,4,6][Math.floor(Math.random()*6)];runs+=n;balls++;document.getElementById('cr').textContent='Runs: '+runs;document.getElementById('cb').textContent='Balls: '+balls+'/12';if(balls===12)document.getElementById('crend').textContent='Innings over! Final score: '+runs}}
+function memoryGame(){stopGame();let a=['🚗','🏏','⚽','🎮','🏍️','🎯','🚀','🎲', '🚗','🏏','⚽','🎮','🏍️','🎯','🚀','🎲'];a.sort(()=>Math.random()-.5);let open=[],matched=[],lock=false;screen.innerHTML=`<h2>🧩 MEMORY MATCH</h2><p>Find all matching pairs.</p><div id="board">${a.map((v,i)=>`<button id="m${i}" style="height:58px" onclick="flip(${i})">❔</button>`).join('')}</div><h3 id="mr"></h3><button onclick="memoryGame()">RESTART</button><button onclick="menu()">MENU</button>`;window.flip=i=>{if(lock||open.includes(i)||matched.includes(i))return;open.push(i);document.getElementById('m'+i).textContent=a[i];if(open.length===2){let [x,y]=open;if(a[x]===a[y]){matched.push(x,y);open=[];if(matched.length===a.length)document.getElementById('mr').textContent='🏆 YOU WON!'}else{lock=true;let t=setTimeout(()=>{document.getElementById('m'+x).textContent='❔';document.getElementById('m'+y).textContent='❔';open=[];lock=false},750);timers.push(t)}}}}
+function rpsGame(){stopGame();screen.innerHTML=`<h2>✊ ROCK PAPER SCISSORS</h2><button onclick="rps('Rock')">✊ Rock</button><button onclick="rps('Paper')">✋ Paper</button><button onclick="rps('Scissors')">✌️ Scissors</button><h3 id="rr"></h3><button onclick="menu()">MENU</button>`;window.rps=u=>{let c=['Rock','Paper','Scissors'][Math.floor(Math.random()*3)],w=u===c?'DRAW':((u==='Rock'&&c==='Scissors')||(u==='Paper'&&c==='Rock')||(u==='Scissors'&&c==='Paper'))?'YOU WIN!':'COMPUTER WINS';document.getElementById('rr').textContent=`You: ${u} | Computer: ${c} — ${w}`}}
+function tapGame(){stopGame();let s=0,t=15,active=true;screen.innerHTML=`<h2>🎯 TAP CHALLENGE</h2><h3 id="ts">Score: 0</h3><h3 id="tt">Time: 15</h3><button id="tap" style="font-size:30px;padding:30px">TAP!</button><h3 id="te"></h3><button onclick="tapGame()">RESTART</button><button onclick="menu()">MENU</button>`;document.getElementById('tap').onclick=()=>{if(active)document.getElementById('ts').textContent='Score: '+(++s)};let timer=setInterval(()=>{t--;document.getElementById('tt').textContent='Time: '+t;if(t<=0){clearInterval(timer);active=false;document.getElementById('te').textContent='Final score: '+s}},1000);timers.push(timer)}
+</script>
+</body>
+</html>
